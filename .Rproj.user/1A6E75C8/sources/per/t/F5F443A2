@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1579920857427.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1093361978",
+    "id" : "F5F443A2",
+    "lastKnownWriteTime" : 1583162466,
+    "last_content_update" : 1584548834827,
+    "path" : "~/R/practice/stats.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "858,4",
+        "scrollLine" : "852"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

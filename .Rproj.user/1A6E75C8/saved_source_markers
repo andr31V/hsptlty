@@ -1,0 +1,1 @@
+{"active_set":"Publish Content Issues","sets":[{"base_path":"~/R/practice/selina/selina_case/./","markers":[{"column":1,"line":17,"log_line":-1,"log_path":"","message":"Paths should be to files within the project directory.","path":"~/R/practice/selina/selina_case/app.R","show_error_list":true,"type":1}],"name":"Publish Content Issues"}]}

@@ -1,0 +1,1273 @@
+---
+title: 'R Notebook: Stats'
+output: html_document
+---
+
+### Studies: propose a research question regarding a population, take a census or sample to measure.
+  - Observational: does not manipulate sample data (retrospective/prospective), e.g. observe divide in energy level between sample of students that exercise vs. those that do not, determines ASSOCIATION
+  - Experiment: randomly assign sample to control and treatment groups (Open, Blind, or Double-blind) to determine CAUSATION
+
+### Variables:
+  - Numerical/Quantitative: continuous vs. discrete
+  - Categorical/Qualitative: ordinal vs. regular 
+  * Dependent (associated) vs. Independent vs. Confounding (misleading extraneous affecting response AND explanatory)
+
+### Sampling: because census are impractical and well constucted samples can arrive at the same conclusions
+  - Bias: convenience, non-response (discredits representativeness), voluntary response (strong opinion)
+  - Types:
+    - SRS: every observation is equally likely to be sampled
+    - Stratified: SRS w/in each homogenous group from population divided by characteristics (BLOCKING is used as equivalent in experimental design)
+    - Cluster: Divide population into clusters, SRS of clusters, take all observations from sampled clusters
+    - Multi-stage: Cluster sampling w/ additional SRS on sampled clusters
+
+*Best studies are generalizable and causal (Random Sample + Random Assignment)*
+
+  - Most observational studies random sample but do not random assign (generalizable but not causal)
+  - Most experiments random assign but do not random sample (causal but not generalizable)
+  - Bad studies do not random sample or random assign (not generalizable or causal)
+  
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library("tidyverse")
+#install.packages("AER")
+library("AER")
+data("HMDA")
+#str(HMDA)
+library(scales)
+
+med <- median(HMDA$pirat)
+mean <- mean(HMDA$lvrat)
+sd <- sd(HMDA$pirat)
+
+dat <- HMDA %>% 
+  mutate(out=if_else(pirat>as.numeric(quantile(pirat,.75))+1.5*IQR(pirat)|
+                     pirat<as.numeric(quantile(pirat,.25))-1.5*IQR(pirat),
+                     "outlier","regular")) 
+
+scatter <- ggplot(data=dat) + geom_point(aes(x=hirat,y=pirat, colour=out)) + geom_smooth(aes(x=hirat,y=pirat)) + theme_minimal() +
+labs(x="Housing/Income Ratio",  y="Payments/Income Ratio", colour="Data Point") +
+ggtitle("PI vs. HI")
+
+uni <- ggplot(dat, aes(x=lvrat)) + geom_histogram(binwidth = .1) + theme_minimal() + scale_x_continuous(breaks=c(.5,.8,.90,.95,1,1.2,2)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x="LTV") +
+ggtitle("Loan to Value: .1 bins")
+
+bi <- ggplot(dat, aes(x=lvrat)) + geom_histogram(binwidth = .05) + theme_minimal() + scale_x_continuous(breaks=c(.5,.8,.90,.95,1,1.2,2)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x="LTV") +
+ggtitle("Loan to Value: .05 bins")
+
+##side analysis: pnorm gives the probability that a normally distruted random # with a set mean and sd will be less than a given #
+
+# Create a sequence of numbers between -10 and 10 incrementing by 0.2.
+x <- seq(-10,10,by = .2)
+ 
+# Choose the mean as 2.5 and standard deviation as 1. 
+y <- pnorm(x, mean = 2.5, sd = 1)
+
+# e.g. around the mean of 2.5, the probability is more or less 50:50
+# the higher the SD, the less precise the probability
+#plot(x,y)
+
+s1 <- rnorm(10000,20,2)
+s2 <- rnorm(10000,30,3)
+
+box <- ggplot(dat,aes(y=lvrat)) + geom_boxplot() + coord_flip() + labs(y="LTV") + ggtitle("LTV Boxplot") + theme_minimal()
+
+```
+
+### Numerical Data
+
+#### Scatter Plot of Mortgage Data (chekout the outliers Q1,Q3 -+ 1.5xIQR)
+  
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+scatter
+```
+    
+#### Normal and Uniform Distribution (the larger the sample size, the more normal)
+  
+```{r, echo=FALSE, warning=FALSE}
+hist(s1)
+```
+
+#### Skewed Distribution (depends on which side of the median the mean falls)
+  
+```{r, echo=FALSE, warning=FALSE}
+hist(rbeta(10000,5,2))
+hist(rbeta(10000,2,5))
+```
+
+#### BiModal (multi) Distribution (2+ distinct means)
+  
+```{r, echo=FALSE, warning=FALSE}
+hist(rbind(s1,s2))
+```
+
+#### Bin Size can affect modality
+  
+```{r, echo=FALSE, warning=FALSE}
+uni
+bi
+```
+
+#### Boxplot
+  
+```{r, echo=FALSE, warning=FALSE}
+box
+```
+
+#### Measuring Spread
+
+  - Variance: avg squared deviations from mean (squaring gets rid of canceling +/- and overweights larger deviations)
+  - Standard deviation: avg deviation from mean (square root of variance)
+*take the sum of deviations and divide by total number of obs (or n-1 for samples, unbiased estimator based on df)
+  - Median and IQR (Q3-Q1) are robust statistics (are not as impacted by outliers) compared with mean and SD
+  
+#### Data Transformation
+
+  - Used to create relationships that are easier to model (more linear, reduce skew)
+  - Log of data that is clustered around 0
+  - Inverse, Square Root, and other transformations
+  
+### Categorical Data
+
+  - Bar plots are the equivalent to histograms for numerical data (where numberline represents x axis)
+  - Use contingency tables to calculate relative proportions w/in groups and w/out
+
+#### Hypothesis Test
+  
+  - Null/H0: status quo (defendent is innocent), assumed true
+  - Alternative/HA: burden of proof (defendent is guilty), the research question
+  - Conclusion: Reject or Fail to Reject Null
+  
+  *p-value evaluates probability of observing a value as extreme as the observed when null is true (if low <.05, we reject)*
+  
+  *2-tailed tests assess both sides (not equal, multiply p-value x2), 1-tailed look at one side (greater or less than)*
+  
+### Probability
+
+  - Disjoint (mutually exclusive) vs. non-disjoint events
+  - General addtn rule: P(A or B) = P(A) + P(B) - P(A & B)
+  - Sample Space: collection of all possible outcomes (probability distribution is sample space with associated disjointed probabilities listed adding up to 1)
+  - Complementary events: mutually exclusive events whose probabilities add up to 1
+  - Independent (P(A | B) = P(A), outcome of 1 event does not impact next event, e.g. coin toss) vs dependent (e.g. card draw)
+  - Product Rule (Independent Events): P(A & B) = P(A) * P(B)
+  - Bayes' Theorem: P(A | B) = P(A & B) / P(B), General Product Rule: P(A & B) = P(A | B) * P(B)
+    - P(A|B) = P(B|A)xP(A) / sum(i=1:n){P(B|A)xP(A)}
+    
+    *prob(model,given data) = prob(data,given model)xprob(model) / sum of total probability*
+    
+  - Probability Trees are used for complex scenarios, go to the end of the branches and then calculate
+  - Bayesian Inference: P(Hypothesis | Data), update prior with calculated posterior probability
+  
+  *p-value is the opposite (frequentist), priors matter less with more data that is collected*
+  
+### Normal Distribution
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+normal <- data.frame(val=s1) %>% 
+  mutate(Category=if_else(abs(val-mean(val))>3*sd(val),"Outlier",
+           if_else(
+   abs(val-mean(val))<=sd(val),"68%",if_else(abs(val-mean(val))<=2*sd(val),"95%","99.7%") 
+  )
+  )
+  )
+#
+#normal %>% 
+#  group_by(Category) %>% 
+#  summarise(test=n()) %>% 
+#  ungroup() %>% 
+#  mutate(freq=test/sum(test))
+
+ggplot(normal, aes(x=val,fill=Category)) + geom_histogram(binwidth = .05) + ggtitle("Normal Distribution Rule") + theme_minimal()
+
+```
+
+  - Standardized Score: # of standard deviations an observation falls above/below mean (>2 is unusual)
+  - Percentiles calculate % of observations that fall below a given score; use pnorm in R or the table, use qnorm to get the reverse, e.g.
+  
+  A score of 1884 on SAT with mean 1500 and sd 300 represents
+```{r}
+pct <- pnorm(1884,1500,300)
+#we can use pnorm directly with test statistic as well
+```
+
+a percentile: `r paste0(ceiling(100*pct),"%")`, which in turn represents an SAT score of:
+
+```{r}
+scr <- qnorm(pct,1500,300)
+```
+  `r scr`
+  
+  - To determine distributions, we plot the values on the y-axis and theoretical calculated percentiles on the x-axis:
+  
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+normal <- normal %>% 
+  mutate(pct_n=pnorm(val,mean(val),sd(val)),
+         pct_s=pnorm(val,mean(val),1),
+         pct_w=pnorm(val,mean(val),5),
+         z=((val-mean(val))/sd(val))
+         )
+
+l <- data.frame(val=rbeta(10000,5,2)) %>% 
+  mutate(pct=pnorm(val,mean(val),sd(val)))
+r <- data.frame(val=rbeta(10000,2,5)) %>% 
+  mutate(pct=pnorm(val,mean(val),sd(val)))
+
+```
+
+    - Normal Distribution: scatter is close to direct line
+    
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(normal,aes(x=pct_n,y=val)) + geom_point() + geom_smooth() + labs(x="Percentile") + theme_minimal() + ggtitle("Normal")
+
+```
+   
+
+    - Narrower Distribution: scatter has shorter tails in S formation
+    
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(normal,aes(x=pct_s,y=val)) + geom_point() + geom_smooth() + labs(x="Percentile") + theme_minimal() + ggtitle("Narrow")
+
+```
+ 
+    - Wider Distribution: scatter has longer tails starting and ending below/above line
+    
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(normal,aes(x=pct_w,y=val)) + geom_point() + geom_smooth() + labs(x="Percentile") + theme_minimal() + ggtitle("Wide")
+
+``` 
+ 
+    - Skewed: Right skew bends up, left skew bends down
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(r,aes(x=pct,y=val)) + geom_point() + geom_smooth() + labs(x="Percentile") + theme_minimal() + ggtitle("Right")
+ggplot(l,aes(x=pct,y=val)) + geom_point() + geom_smooth() + labs(x="Percentile") + theme_minimal() + ggtitle("Left")
+```
+
+### Binomial Distribution
+
+  - Bernoulli Random Variable: individual trial with only 2 possible outcomes
+  - Formulas:
+    - Arrangements: n!, (n-1)! for circular cases where shifting makes no impact
+    - Combinations: # of ways we can arrange r items n ways, nCr, n! / r!(n-r)!
+    - Permutations: ordered combinations, n! / (n-r)!
+  - Example: 6 people sit at a ROUND table, including you and a friend.
+    - Total possible arrangements = (6-1)! = 5! = 120
+    a) Probability of sitting next to friend?:
+      - ignore your position (assume fixed, negligable in calculation)
+      - 2 ways for friend to sit next to you, nCr = 2C1 = 2!/1! = 2
+      - 4 ways left for others to be seated, 4! = 24
+      - probability = 2*24 / 120 = 2/5
+    b) Probability of sitting opposite of friend
+      - ignore your position
+      - 1 way for friend to sit across, nCr=1C1=1! = 1
+      - 4 ways left for others to be seated, 4! = 24
+      - probability = 1*24 / 120 = 1/5
+    c) Probability of sitting next to 2 strangers
+      - ignore your position
+      - 4 ways to have 2 strangers next to you, nCr=4C2=4!/(4-2)!=12
+      - 3 ways left for remainder to sit, 3!=6
+      - probability = 12*6 / 120 = 72/120 = 3/5, or complement of A
+  - Example2: 6 people sit at a round table, but 1 cannot sit to 2 individuals in particular, how many arrangements?
+    - Take regular total, (n-1)!=(6-1)!=5!=120
+    - subtract the special case, 2! ways for unwelcome to sit next to you and 3! for remainder to seat = 12
+    - 120-12 = 108
+  - Binomial Distribution: k successes in n independent trials subject to probability of success p
+    - p(k success n trials) = nCk * p^k*(1-p)^(1-k), nCk is the combination formula
+      - p must be constant for all trials
+      - trials must be fixed, independent, and classified as binary success/failure
+    - example: probability of 8 engaged workers in a sample of 10, given p=.13
+      - 10C8 * .13^8*(.87)^2 or
+```{r}
+dbinom(8,10,.13)
+```
+    - Mean = n * p | Variance = p(1-p) * n 
+    - example2: 245 fb users (n), 25% power user percentage (p), calculate probability of having >= 70 power user friends?
+```{r}
+sum(dbinom(70:245,245,.25))
+```
+  - Binomial distribution approximates normal when there are at least 10 success and failures
+  
+### Central Limit Theorem
+
+  - distribution of sample statistics is nearly normal, centered around population mean, with standard deviation equal to population standard deviation / sqrt(sample size), aka standard error
+    - sampled obs must be independent
+    - if sampling w/o replacement, n < 10%N
+    - population must follow a normal distribution, or sample size must be large enough (>30)
+  - sampling distribution NE samples distribution
+  - confidence interval: possible range of values for population parameter
+    - sample mean +/- critical value*standard error, critical value = z = middle x% of normal dist
+  - ex: critical value of 95% interval:
+```{r}
+qnorm((1-.95)/2) #divide by two tails
+
+#qnorm(.05)*4.31/6 + 30.69
+```
+      - 95% of samples will contain true population mean, draw the cool line chart
+  - higher accuracy (e.g. wider confidence interval) comes at cost of lower precision (higher SE)
+    - increase sample size to get best of both
+  - Margin of Error = z*s/sqrt(n)
+    - n = (z*s/moe)^2 = required sample size
+  - point estimate should be unbiased estimate (nearly normal, with sampling dist centered around mean)
+  
+###Errors in hypothesis testing:
+
+  - Type I: False Positive (significane level, probability of commiting a type I error)
+  - Type II: False Negative
+  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library("kableExtra")
+x <- matrix(c("1-a","B, type II","a, type I","1-B, power"),2,2)
+dimnames(x) <- list(c("HO True","HA True"),c("Fail to Reject H0","Reject H0"))
+x  %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+  - B (beta) aka Type II error will depend on "effect size" (difference between estimate and null value), which will be less impactful for larger samples
+  - Goal is to keep alpha (a) and beta (B) low, striking a balance between both costs depending on which is costlier
+  - One sided hypothesis tests have lower confidence interval than two sided test for same alpha (alpha can be spread over two tails widening the confidence interval, increasing the test statistic)
+  
+### T distribution
+  - Fatter tails (the more degrees of freedom - DF - the narrower and closer to normal), more conservative
+  - Used when population standard deviation is unknown, which is almost always
+  - ex (p-value for two sided test with z=2):
+```{r}
+#Normal
+pnorm(2,lower.tail = FALSE)*2
+#T, df=50
+pt(2,50,lower.tail = FALSE)*2
+#T, df=10
+pt(2,10,lower.tail = FALSE)*2
+  ```
+
+  From this example we would reject the null using the normal distribution but not the t distribution.
+  
+  - DF=n-1, find test statistic:
+  
+```{r}
+#ex, sample size of 22, 95% confidnece
+df <- 22-1
+test_stat <- qt(.025,df)
+test_stat
+```
+  
+  - difference between 2 means: groups must also be independent of each other (between groups)
+    - point estimate = x1 - x2
+    - SE = sqrt(s1^2/n1 + s2^2/n2)
+    - DF = min(n1-1,n2-1)
+    
+  - paired data uses two variables that have a relationship (ex: reading and writing scores)
+  
+### Test Power
+
+```{r}
+p <- ggplot(data.frame(x = c(-4, 4)), aes(x = x)) +
+        stat_function(fun = dnorm) +
+  theme_bw()
+
+funcShaded <- function(x) {
+    y <- dnorm(x, mean = 0, sd = 1)
+    y[x < qnorm(.975)] <- NA
+    return(y)
+}
+
+p + stat_function(fun=funcShaded, geom="area", fill="red", alpha=.4) + 
+  scale_x_continuous(name = "Probability",
+                              breaks = c(-4,-3,-2,-1,0,1,round(qnorm(.95),2),round(qnorm(.975),2),3,4),
+                              limits=c(-4, 4)) +
+scale_y_continuous(name = "Frequency") +
+        ggtitle("Normal function curves of probabilities (upper tail, TWO-sided 95% confidence)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+funcShaded <- function(x) {
+    y <- dnorm(x, mean = 0, sd = 1)
+    y[x < qnorm(.95)] <- NA
+    return(y)
+}
+
+p + stat_function(fun=funcShaded, geom="area", fill="red", alpha=.4) + 
+  scale_x_continuous(name = "Probability",
+                              breaks = c(-4,-3,-2,-1,0,1,round(qnorm(.95),2),round(qnorm(.975),2),3,4),
+                              limits=c(-4, 4)) +
+scale_y_continuous(name = "Frequency") +
+        ggtitle("Normal function curves of probabilities (upper tail, ONE-sided 95% confidence)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+  - Test power represents the probability of rejecting the NULL when it is in fact false (1-B, not committing a type II/false negative error) = area under the curve to the left of test statistic (complement of significance level)
+  - We can determine required sample size by working backwards from an experiment, given level of confidence (95%), sd (12), and EFFECT SIZE (3), ex: calculate n that provides 80% power?
+    - Assume new distribution is centered around effect size mean (3), calculate z score for .8 power:
+```{r}
+qnorm(.8)
+```
+    - Calculate distance from null mean (0, assumes no difference 95% confidence) in standard errors that adds up to an effect size of 3: .84se + 1.96se = 3, SE = 
+```{r}
+SE <- 3/2.8
+```
+    - Substitute this value into the SE formula for the difference in means from the original experiment, given the group standard deviations (12):
+```{r}
+#SE = sqrt(12^2/n + 12^2/n)
+#SE^2 = (12^2 + 12^2)/n
+#n = (12^2 + 12^2)/SE^2
+(12^2 + 12^2)/SE^2
+```
+### Comparing multiple means
+
+  - Test statistic is used to compare between 2 means, we use anove (analysis of variance) and F statistic to determine statistical significance for MULTIPLE means
+    - F statistic = var between groups / var within groups
+  - Null hypothesis: means are the same for all groups
+  - Alternative: there's a difference between AT LEAST ONE PAIR
+    
+#### ANOVA Output:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+x <- matrix(c("k-1","dfT-dfR","n-1",
+              "SSR=sum(j,1:k){nj(xj-x)^2}","SSE=SST-SSR","SST=sum(i,1:n){(xi-x)^2}",
+              "MSR=SSR/dfR","MSE=SSE/dfE","",
+              "F:MSR/MSE","",""
+              ),3,4)
+dimnames(x) <- list(c("Regression: Between Groups","Error/Residual: Within Groups","Total"),
+                    c("Degrees.freedom","Sum of Squares","Mean of Squares","F-Value"))
+x  %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+  - The f value is the ratio between the explained (MSR) and unexplained (MSE) variability; a large enough value will produce a small enough p-value to reject a null hypothesis that there is not difference between the means, ex: p value for sample size 795 with 4 groups and f-value 21.735
+  
+```{r}
+pf(21.735, 3, 791, lower.tail = FALSE)
+```
+  - Conditions:
+    - Independence w/in and between groups
+    - Approximately normal distribution
+    - Variability should be consistent across groups (homoscedastic)
+  
+#### Multiple pairwise comparisons:
+  - SE = sqrt(MSE/n1 = MSE/n2)
+  - DF = dfE
+  - Then use individual group means and and sample size
+  - Bonferroni Correction: it is suggested to lower significance level when testing many pairs of groups (multiple comparison);
+    - Original alpha = a
+    - New alpha = a/K, K = k(k-1)/2
+    
+### Bootstrapping
+
+  - Random sampling with replacement to get sampling distribution of a sample statistic:
+    1) Original Sample
+    2) Generate new sample of same size as original sample by sampling with replacement
+    3) Calculate and record statistics of interest (e.g. mean, median, variance)
+    4) Rinse, lather, repeat until you have a sampling distribution for your statistic
+  - Similar to general sampling distributions, which do sampling with replacement from the population (instead of the sample)
+  
+### Proportions
+  - Similar conditions to other CLT
+  - Standard Error: SE = sqrt(p(1-p)/n), use p=.5 if not prior available (most conservative, largest n)
+  - ex: 90% plants are flowering plants, from a sample of 200 plants, what is the probability that over 95% will be flowering plants?
+    - p = .9, p_ >=.95?
+    - n = 200, <10% of N
+    - sucess = .9*200 = 180 > 10 | failure = .1(200) = 20 > 10
+```{r}
+SE <- sqrt(.9*(1-.9)/200)
+Z <- (.95 - .9) / SE
+pnorm(Z,lower.tail = FALSE)
+
+#OR
+
+sum(dbinom(190:200,200,.9))
+```
+
+  - ex2: 85% Americans have good experimental design intution (point estimate), based on 670 sample size, estimate 95% confidence interval?
+    - p_ = .85, n=670
+```{r}
+SE <- sqrt(.85*(1-.85)/670)
+Z  <- qnorm(.975)
+lower <- .85 - Z*SE
+upper <- .85 + Z*SE
+```
+    - We are 95% confident that the true proportion of Americans with good experimental design intuition is between `r percent(lower)` and `r percent(upper)`
+    
+  - Hypothesis Test:
+    - set null (H0:=) and alternative (HA:>,<,\=)
+    - calulate point estimate
+    - check conditions (independence - 10%N, skew - 10 success/failure)
+    - calculate SE and MOE based on level of significance and POPULATION statistic (p not p_)
+    - calculate p value (probability of observing an as/more extreme value)
+      - if less than/equal to level of significance, reject H0 and data provides convincing evidence
+      - if greater than, fail to reject H0, data does not provide convincing evidence of HA
+    - ex: 60% of 1983 sampled americans believe in evolution, can we conclude majority of americans believe in evolution?
+      - H0: p = .5 | HA: p > .5
+      - p_ = .6, n = 1983, conditions are met
+```{r}
+SE <- sqrt(.5*(1-.5)/1983) 
+Z <-(.6-.5)/SE
+pnorm(Z,lower.tail = FALSE)
+```
+
+      - At 5% level of significance, we would reject H0 in favor of the alternative
+      
+#### Difference between Proportions
+  - Similar conditions as before, with independence required between and w/in groups
+  - Point Estimate: p_1 - p_2
+  - Standard Error: sqrt( p_1(1-p_1)/n1 + p_2(1-p_2)/n2 )
+  - Start by defining success (p) equivalently between groups, ex: support for gun control between US population (1) and coursera students (2)
+  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+x <- matrix(c("257","59","1028","83",".25",".71"
+              ),2,3)
+dimnames(x) <- list(c("USA","Coursera"),
+                    c("Success","n","p_"))
+x  %>% 
+  kable() %>% 
+  kable_styling()
+```
+  
+  - ex: use 95% confidence interval to compare views between US and coursera
+```{r}
+#coursera vs US
+  p_diff = .71 - .25
+  SE <- sqrt(.71*(1-.71)/83 + .25*(1-.25)/1028)
+  Z <- qnorm(.975)
+  upper <- p_diff + Z*SE
+  lower <- p_diff - Z*SE
+```
+  - We are 95% confident that the true variation in proportion of support for gun control betweem Americans and coursera students is between `r percent(lower)` and `r percent(upper)`
+    - since the lower and upper limits exclude 0, we would expect a significance difference between the groups at the 5% level of significance
+  - In a hypothesis test for difference in proportions, we should used POOLED PROPORTION, instead of individual sample proportions, when calculating SE and success/failure condition:
+    - p_pool = (success_1 + success_2) / (n1 + n2)
+    
+#### Simulation
+  - When success/failure condition is not met (e.g. sample size is too small), we can use simulations and calculate the point estimate as the percent of those simulations that meet/exceed the observed extreme value (e.g. 100%)
+  - Ex: Paul the octopus predicts 8 world cups correctly in a row, is he psychic?
+    - p_null = .5, .5*n = .5(8) = 4 < 10, use simulation (h0: p=.5 | hA: p>.5) instead:
+```{r}
+p  = .5
+p_ = 1
+n  = 8
+
+#paul = factor(c(rep("yes", 8), rep("no", 0)), levels = c("yes","no"))
+#inference(paul, est = "proportion", type = "ht", method = "simulation", success = "yes", null = 0.5, alternative = "greater")
+
+dbinom(8,8,.5)
+
+#OR
+
+smp <- 8
+num <- 0
+den <- 1000000 
+for (i in 1:den) {
+num <- num + as.numeric(all(sample(c('y','n'),size=smp,replace=TRUE)=="y"))
+}
+
+num/den
+
+```
+    
+  - t-distribution is only appropriate for means: in HT for one categorical variable, generate simulated samples based on the null hypothesis, and then calculate the number of samples that are at least as extreme as the observed data.
+  
+  - ex2: 10 sided fair die, rolled 12x, success is considered 11+ correct guesses of 1. Repeat exercise 100x, calculate p value? 
+
+```{r}
+smp <- 12
+num <- 0
+den <- 100
+suc <- 11
+for (i in 1:den) {
+  
+num <- num + as.numeric(sum(as.numeric(sample(1:10,size=smp,replace=TRUE)==1))>=suc)
+}
+
+num/den
+
+```
+    
+#### Chi-Square
+  - Simular to regular hypothesis test, but null value is expected result
+  - X2 = sum_of(1:k){(observed - expected)/expected}
+    - degrees of freedom: k - 1, k = #of classes
+  - used for categorical variables with multiple levels
+    - goodness of fit: comparing one categorical variable with 2 or more levels to hypothesized scenario
+    - independence: comparing 2+ categorical variables (one with 2 or more levels)
+      - df = (r-1) * (c-1), r=row | c=column, each cell must have >= 5 expected cases
+      - ex: is dating and obesity related? H0: independent, HA: associated
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+x <- matrix(c("81","359","440","103","326","429","147","277","424","331","962","1293"
+              ),3,4)
+dimnames(x) <- list(c("obese","not obese","total"),
+                    c("dating","cohabitating","married","total"))
+x  %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+      - expected obesity rate:
+```{r}
+exp = 331/1293
+total_obese_obs <- c(81,103,147)
+total_not_obese_obs <- c(359,326,277)
+total_obese_exp <- round(exp*c(440,429,424))
+total_not_obese_exp <- round((1-exp)*c(440,429,424))
+#chi squaare
+x2 <- sum(c(
+(total_obese_obs-total_obese_exp)^2/total_obese_exp,
+(total_not_obese_obs-total_not_obese_exp)^2/total_not_obese_exp
+))
+df <- (2-1)*(3-1)
+pchisq(x2,df,lower.tail=FALSE)
+```
+
+ This p-value gives the area under the curve to the right of the calculated x2 (the tail). At the 5% significance level, we can conclude there is a relationship
+ 
+## Modeling
+
+  - Correlation: strength (measured in absolute value) of linear relationship between two variables
+    - -1 <= p <= 1
+    - unitless/ not affected by scale changes
+    - XvsY = YvsX
+    - Sensitive to outliers
+  
+```{r message=FALSE, warning=FALSE}
+#function to create two vectors of desired correplation p aka rho
+#from https://stats.stackexchange.com/questions/15011/generate-a-random-variable-with-a-defined-correlation-to-an-existing-variables
+complement <- function(y, rho, x) { #x is the response
+  if (missing(x)) x <- rnorm(length(y)) # Optional: supply a default if `x` is not given
+  y.perp <- residuals(lm(x ~ y)) #extract the y part from x via least square residuals
+  rho * sd(y.perp) * y + y.perp * sd(y) * sqrt(1 - rho^2) #adding back a suitable multiple
+}
+
+y <- rnorm(50, sd=10)
+x <- 1:50 # Optional
+rho <- seq(0, 1, length.out=6) * rep(c(-1,1), 3) #desired correlation preset from -1 to 1 in six increments
+X <- data.frame(z=as.vector(sapply(rho, function(rho) complement(y, rho, x))), #apply the complement function 6x50 times
+                rho=ordered(rep(signif(rho, 2), each=length(y))), # tag the associaed p correlations to showing max 2 digits
+                y=rep(y, length(rho))) #tag the explanatory variable or x axis
+##output
+ggplot(X, aes(y,z, group=rho)) + 
+  geom_smooth(method="lm", color="Black") + 
+  geom_rug(sides="b") + 
+  geom_point(aes(fill=rho), alpha=1/2, shape=21) +
+  facet_wrap(~ rho, scales="free")
+```
+
+  - Residuals: difference between observed and predicted
+    - data = fit (e.g. line) + residual (e)
+    - e(i) = y(i) - y_(i)
+  - Least Squares: measure for best line (minimize sum of squared residuals)
+    - same rationale as squaring deviations to calculate variance
+    - y = b0 + b1x
+    - slope (explains increase/decrease in y for unit increase in x) = b1 = R*sd(y)/sd(x), R=cor(x,y)
+    - intercept = b0 = y, given x = 0 and slope is known
+  - Extrapolation: appling a model estimate value outside original data, e.g. intercept
+  - Conditions for linear regression:
+    - Linear relationship, check residuals plot
+    - nearly normal residuals, centered at 0 (use histogram)
+    - constant variability (homoskedasticity), variability of points around least squares and residuals around 0 line, check residuals plot
+  - R2: variability of response explained by model
+    - 0<=r2<=1
+    - square of the correlation coefficient
+  - Regression for categorical variables
+    - set reference level/leftover value = 0, results in intercept value when plugged into slope coefficient
+    - nullify specific coefficients with 0, and activate others with 1, when targeting impact of specific explanatory variables, e.g.
+        - y = .17 + .03x1 + .5x2 + .67x3, what is the impact of x1 only?
+          - y = .17 + .03x1 +.5(0) + .67(0) = .17 + .03(1)
+  - Outliers
+    - leverage points: horizontally drift away from general scatter but do not influence slope of regression
+    - influential points: impact the regression, usually high leverage points
+    - Best is to visualize (3 fitted models, the leverage point barely impacts non-outlier regression, but influential point completely changes the slope)
+```{r message=FALSE, warning=FALSE}
+set.seed(5)
+dat <- data.frame(x=rnorm(50,20,1),y=rbeta(50,20,1)) %>% 
+  mutate(z=fitted(lm(y~x))) %>% 
+  rbind(data.frame(x=10,y=1,z=NA)) %>% #leverage point
+  mutate(z1=fitted(lm(y~x))) %>% 
+  rbind(data.frame(x=10,y=.5,z=NA,z1=NA)) %>% #influential point
+  mutate(z2=fitted(lm(y~x))) %>% 
+  mutate(point=if_else(x==10,if_else(y==.5,"influential","leverage"),"non-outlier"))
+
+ggplot() + 
+  geom_point(dat,mapping=aes(x=x,y=y, color=point)) + 
+  geom_line(dat,mapping=aes(x=x,y=z)) +
+  geom_line(dat,mapping=aes(x=x,y=z1)) +
+  geom_line(dat,mapping=aes(x=x,y=z2))
+```
+    
+    - We should always have solid justification before removing outliers, even if model fit improves
+  
+  - Inference
+  
+    - Null hypotheis: slope of relationship = b(i) = 0 | alternative /= 0 (always divide p value for t-test by 2)
+    - t test: (point estimate - null) / SE = (b(i) - 0)/SEb(i), df = n - k - 1 = n - 2
+    - Degrees freedom (we lose 1 for each paramter tested, including slope)
+```{r}
+set.seed(5)
+dat <- data.frame(x=rnorm(50,20,1)) %>% 
+  mutate(y=rnorm(50,30,2))
+  summary(lm(y ~ x,dat)) #or
+t  <- (.1831-0)/.218
+df <- 50 - 1 - 1 
+pt(t,df=df,lower.tail=FALSE)*2 #two sided
+```
+    - Confidence interval created using: b(i) +/- tdf*SE, e.g. calculate t stat for 25 df and 95% confidence (2-sided):
+```{r}
+qt(.975,25,lower.tail = FALSE)
+```
+    
+  - Variability partitioning:
+    - SST = sum{(y-mean(y))^2}, df = n-1
+    - SSE = sum{(y-y_)^2}, df =  n - k -1
+    - SSR = SST - SSE, df = k
+    - F = msR/msE = ratio of explained variability to unexplained variability
+    - R2 = ssR/ssT = ratio of explained to total variability
+```{r}
+anova(lm(y ~ x,dat)) #or
+dat %>% 
+  mutate(
+    sst=sum((y-mean(y))^2),
+    sse=sum((y-fitted(lm(y ~ x)))^2)
+  ) %>% 
+  mutate(ssr=sst-sse) %>% 
+  select(ssr,sse,sst) %>% 
+  unique()
+  
+```
+  - Multiple regression example: city vs high mpg for different classes of cars
+```{r}
+# load data
+data(mpg)
+mpg2 <- mpg %>% 
+  mutate(stick=if_else(grepl("manual",trans),'y','n'), # narrow transmission variable
+         size=if_else(class %in% c("suv","minivan","pickup"),'large','small')
+         ) 
+
+ggplot(mpg2) +
+  geom_point(aes(x=hwy,y=cty,color=size))
+
+#summary(glm(cty ~ hwy + size,gaussian(link="identity"),mpg2))
+fit.lm <- lm(cty ~ hwy + size,mpg2)
+summary(fit.lm)
+
+```
+
+  - hwy slope: For each 1 unit increase in highway mpg, city mpg increases by .796 units on average
+  - size slope: ceteris paribus, smaller vehicles (as defined by the model feature generation), have 1.66 fewer city mpg
+  - split between large and small cars:
+```{r}
+mpg3 <- mpg2 %>% 
+  mutate(
+    small=coefficients(fit.lm)[[1]] + coefficients(fit.lm)[[2]]*hwy + coefficients(fit.lm)[[3]]*1,
+    large=coefficients(fit.lm)[[1]] + coefficients(fit.lm)[[2]]*hwy + coefficients(fit.lm)[[3]]*0
+  )
+
+ggplot(mpg3) +
+  geom_point(aes(x=hwy,y=cty,color=size)) +
+  geom_line(aes(x=hwy,y=small)) +
+  geom_line(aes(x=hwy,y=large))
+```
+  
+    - this assumes that small and large react the same to slope between hwy and city, if not we can consider introducing an interaction variable?
+  
+```{r}
+fit.lm2 <- lm(cty ~ hwy + size + hwy*size,mpg2)
+summary(fit.lm2)
+```
+    - Adjusted R2: penalizes additional predictors that do not add add'l predictive power (adding variables by default increases R2)
+      - aR2 = 1 - (SSE/SST * (n-1)/(n-k-1) 
+      - always: aR2 < R2, k is never negative
+    - Collinearity: when two predictors are correlated with each other
+      - predictors should be independent
+      - multicollinearity complicates model estimation (biased estimates of regression parameters)
+      - simplest best (parsimonious) model is preferred, occam's razor
+    - Inference for MLR:
+      - Null: B1=B2=..=Bi=0
+      - Alternative: @least 1 Bi /= 0
+      - If p-value <= level of significance, model as a whole is significant (not necessarily good fit)
+      - Individual variables may be predictive and model as a whole is not, and vice versa
+        - H0: Bi=0 | HA: Bi /=0, when other variables are included in the model
+    - Model Selection
+      - Stepwise:
+        - Forward: start w/ empty model, keep adding predictive variables until parsimonious model is reached
+        - Backward: start w/ full model, removing least effective predictors (highest p-value) one at a time (iteratively) until parsimonious model is reached. All levels of a variable need to be dropped together (if one level is significant, don't drop under p-value method)
+      - Criteria (relative measures):
+        - least squares: R2, aR2, p-value (approaches may produce slightly different resuls)
+        - maximum likelihood: AIC, BIC (similar to adjusted R2 for AIC)
+        [complements of each other, min squares = max likelihood]
+```{r}
+#backward example
+pred <- c("manufacturer","displ","year","cyl","drv","stick","size")
+fit_full <- lm(cty ~ manufacturer + displ + year + cyl + drv + stick + size,mpg3)
+#R2 method
+c(summary(fit_full)$r.squared,summary(fit_full)$adj.r.squared)
+##step1: remvove 1 variable
+for (i in 1:length(pred)) {
+  pred_ <- pred[-i] %>% 
+    paste(.,collapse ="+") 
+  fit_ <-summary(lm(as.formula(paste("cty",pred_,sep="~")),mpg3))
+print(c(fit_$r.squared,fit_$adj.r.squared,paste0("-",pred[i])))
+}
+##Conclusion: we do not drop any variables based on R2 method, as it lowers with any single variable removed
+
+#P-value method
+summary(fit_full)
+##Step 1: remove variable with highest p-value (note, we cannot remove specific level of a variable, e.g. manufacturer, drive)
+summary(lm(cty ~ manufacturer + 
+             #displ + 
+             year + 
+             cyl + 
+             drv + 
+             stick + 
+             size,mpg3))
+##Step 2: remove next variable with highest/insignificant p-value, until only significant predictors remain
+summary(lm(cty ~ manufacturer + 
+             #displ + 
+             year + 
+             cyl + 
+             drv + 
+             #stick + 
+             size,mpg3))
+summary(lm(cty ~ manufacturer + 
+             #displ + 
+             #year + 
+             cyl + 
+             drv + 
+             #stick + 
+             size,mpg3))
+fit_end <- lm(cty ~ manufacturer + cyl + drv + size,mpg3)
+```
+
+With the R2 method, we didn't remove any variables as R2 `r summary(fit_full)$r.squared` and adj R2 `r summary(fit_full)$adj.r.squared` was highest wth the full model, versus p-value method where we iterated to remove 3 predictors coming at an R2 of `r summary(fit_end)$r.squared`/adjusted R2 of `r summary(fit_end)$adj.r.squared`:
+  - Adjusted R2 method has more reliable predictors but requires fitting more models
+  - P-value method relies on arbitrary significance level (if changed, model changes) but requires fitting fewer models and is more common
+  - Expert opinion/intuition may also decide to retain certain variables even if they do not prove predictive
+
+  - Diagnostics:
+    - linear relationship between NUMERICAL x and y (use residual scatterplot, should be distributed evenly around 0)
+```{r}
+fit_num <- lm(cty ~ hwy,mpg)
+plot(fit_num$residuals ~ mpg$hwy)
+```
+    - nearly normal residuals around 0 (check with histogram or normal probability plot)
+```{r}
+#hist
+hist(fit_num$residuals)
+#norm prob
+qqnorm(fit_num$residuals) 
+qqline(fit_num$residuals)
+```
+    
+    - Constant variability of residuals: variability should be consistent for low/high values of predicted (check by plotting residuals againts predicted - considers all predictors/model as a whole, should be even around 0)
+    
+```{r}
+plot(fit_full$residuals ~ fit_full$fitted.values) #should not see fan shape
+plot(abs(fit_full$residuals) ~ fit_full$fitted.values) #should not see triangle
+
+```
+    
+    - Independent Residuals: if residuals are independent, observations are too
+      - if time series is suspected, check residuals over order of data
+      - if not, think about how data is sampled
+      
+```{r}
+plot(fit_full$residuals)
+```
+
+If time series were applicable, we would see residuals moving in a direction over index.
+
+## Bayesian Statistics
+  - Likelihood: probability of data given unknown parameters
+  - Sensitivity: True Positive
+  - Specificity: True Negative
+  - ex: testing HIV with postive ELISA
+```{r}
+p_hiv <- 1.48/1000
+p_neg <- 1-p_hiv
+#ELISA test
+p_sens <- .93
+p_fp <- 1-p_sens
+p_spec <- .99
+p_fn <- 1-p_spec
+#step1 calculate branches
+p_hiv_sens <- p_hiv*p_sens
+p_hiv_fals <- p_hiv*p_fp
+
+p_neg_spec <- p_neg*p_spec
+p_neg_fals <- p_neg*p_fn
+##check if they add up to 1
+sum(p_hiv_sens,p_hiv_fals,p_neg_fals,p_neg_spec)
+#step2: calculate denominator for bayes: P(B) = probability of getting ELISA +
+p_elisa <- p_hiv_sens + p_neg_fals
+#step3: calculate numerator for bayes: P(A&B) = probability of being HIV+ & ELISA+
+p_hiv_sens
+#step4: calculate P(A|B) = probability of being HIV positive, given ELISA+, the posterior probability
+p_hiv_sens/p_elisa
+```
+    - Use the posterior probability for retesting
+    - probability of having HIV is second ELISA is also positive?
+```{r}
+#step1: use posterior to recalculate probability of having HIV (since first test was postiive)
+p_hiv <- p_hiv_sens/p_elisa
+p_neg <- 1-p_hiv
+#step2: rerun the above model
+###revised branches
+p_hiv_sens <- p_hiv*p_sens
+p_hiv_fals <- p_hiv*p_fp
+p_neg_spec <- p_neg*p_spec
+p_neg_fals <- p_neg*p_fn
+####check if they add up to 1
+sum(p_hiv_sens,p_hiv_fals,p_neg_fals,p_neg_spec)
+##calculate denominator for bayes: P(B) = probability of getting ELISA +
+p_elisa <- p_hiv_sens + p_neg_fals
+##calculate numerator for bayes: P(A&B) = probability of being HIV+ & ELISA+
+p_hiv_sens
+##calculate P(A|B) = probability of being HIV positive, given ELISA+, the posterior probability
+p_hiv_sens/p_elisa
+```
+
+### Bayesian vs. frequentisit
+  - Frequentist probability: P(E) = nE/n {n,1:inf}
+  - Bayesian: P(E) = p, if not prior belief, p=.5
+  - Credible vs Confidence Intervals
+    - Allow us to make probabilistic statements about population parameters that fall within calculated windows, that frequentist CONFIDENCE intervals do not
+  - Ex: Determining if contraceptive pill is effective, given n=40 split into even control/treatment groups, where treatment had 4 pregnancies, control had 16?
+     - Frequentist approach
+```{r}
+n1 <- 20
+n2 <- 20
+s1 <- 4
+s2 <- 16
+p1 <- s1/n1
+p2 <- s2/n2
+p_pool <- (s1 + s2)/(n1 + n2)
+#success/failure and sample size conditions are met using pooled proportion
+#Step1: set up hypothesis
+##H0: p1 - p2 = 0
+##HA: p1 - p2 < 0 
+#step2: calculate SE and z value
+SE <- sqrt(p_pool*(1-p_pool)/n1 + p_pool*(1-p_pool)/n2)
+z <- ((p1-p2)-0)/SE
+#step3: calulcate p-value
+pnorm(z,lower.tail = TRUE)
+
+##or (if we simply the problem, assume the group probabilities should be the same given pooled proportion, .5, what's the probability of get 4 or fewer pregnancies in such a group?)
+
+sum(dbinom(0:4,20,.5))
+```
+    - Bayesian Approach
+```{r}
+#Consider 20 total pregnancies out of 40, and calculate likelihood (posterior) of there being only 4 in the treatment group, suggesting it be more effective
+##Step 1: Create symmetric distribution of models for p around p=.5
+p <- seq(.1,.9,.1)
+##Step2: Assume some priors (based on prior beliefs, intutiont, etc.), e.g. 52% prior for p=.5 and rest evenly distributed
+p_ <- .52
+rem <- (1-.52)/8
+prior <- c(rep(rem,4),p_,rep(rem,4))
+##Step3: calulate probability of data, given model = p(data | p) = likelihood
+p_dat_mod <- dbinom(4,20,p)
+##Step4: calculate probability of priors, given data = p(prior|data) = posterior
+###numerator: P(prior)*P(data|p)
+num <- prior*p_dat_mod
+###denominator: sum(numerator)
+den <- sum(num) ###DONT GET THIS ONE
+###numerator/denominator
+post <- num/den
+###check that posterior adds to 1
+sum(post)
+```
+    - Observations
+      - The heighest posterior probability is for model p=.2 (4 pregnancies in 20) at `r post[2]`
+      - The sum of posterior probabilities under p=.5 is `r sum(post[1:4])`, gives the probability that the treatment is more effective than the control
+      - The null model p=.5 having the highest original probability prior=.52 dropped to `r post[5]` after data observed 
+    - Conlusions:
+      - frequentist approach of data "being at least as extreme as observed" plays no part
+      - we can make probabilistic statements
+      - posterior distribution will be somewhere between prior and data dist (the more data/sample size we have, the closer it will resemble the data given model distributon)
+        - model prior distribution
+```{r}
+ggplot(data.frame(p,prior)) + geom_bar(aes(x=p,y=prior),stat="identity")
+```
+        - data distribution
+```{r}
+ggplot(data.frame(p,p_dat_mod)) + geom_bar(aes(x=p,y=p_dat_mod),stat="identity")
+```
+        - posterior distribution
+```{r}
+ggplot() + geom_bar(aes(x=p,y=post),stat="identity")
+```
+  - Ex2: sample 5 m&ms, 1 is yellow. P of yellow is either .1 or .2, determine which?
+    - Frequentist:
+      - H0: p = .1 | HA: p>.1
+      - p_ = 1/5 = .2
+      - probability of true p being .1 given p_=.2
+```{r}
+p <- .1
+k <- 0
+n <-5
+p_ <- 1-sum(dbinom(0:k,n,p))
+```
+      - `r percent(p_)` of similarly generated samples would produce a point estimate greater than .1 even if true p=.1
+      - At 5% significance, we would fail to reject H0
+    - Bayesian: test based on observed data of 1 in 5
+```{r}
+k <- 4
+n <- 20
+#model
+p1 <- .1
+p2 <- .2
+#prior
+pri1 <- .5
+pri2 <- .5
+#data given model
+like_h1 <- dbinom(k,n,p1)
+like_h2 <- dbinom(k,n,p2)
+#model given data: p(prior|data) = p(prior)*p(data|model) / sum(p(data|model)) 
+post_h1 <- pri1*like_h1/sum(pri1*like_h1,pri2*like_h2)
+post_h2 <- 1-post_h1
+```
+    - Slighlyt different conclusion under the different approaches
+      - frequentist only tests one hypothesis
+      - bayesion tests both hypotheses as models
+  - Ex3: NYC cab involved in hit & run
+    - 5 witnesses: 4/5 say green cab | 1/5 say yellow cab
+    - Sensitivity: 2/3
+    - p(yellow) = 85% | p(green) = 15%
+    - determine probability that cab was green?
+```{r}
+n <- 5
+k <- 4 #4/5 say the cab is green
+#models
+p_y <- .85
+p_g <- .15
+#sensitivity
+sens <- 2/3
+fals <- 1-sens
+#data
+#calculate branches
+##1) cab is yellow, calculate probability that exactly 4/5 are wrong claiming it is green
+p_y_ <- p_y*dbinom(k,n,fals)
+##2) cab is green, calculate probability that exactly 4/5 are correct claimin it is green
+p_g_ <- p_g*dbinom(k,n,sens)
+#prob green = prob(green)/total prob
+p_g_ / sum(p_y_,p_g_)
+
+##OR: manually, based in binomial formula: p = N(p)^k * (1-p)^(n-k) 
+
+.15*5*(2/3)^4*(1/3)/ #probability that it is green
+#toal probability
+  sum(.15*5*(2/3)^4*(1/3), #prob green
+    .85*5*(1/3)^4*(2/3)) #prob yellow
+```
+  - Ex4: NFL playoffs
+    - 32 teams
+      - 20/32 play 16 games (no playoffs)
+      - 4/32 play 17 ganes
+      - 6/32 play 18 games
+      - 2/32 ply 19 games (superbowl)
+    - unknown team won 10 of it's coin flips
+    - calculate posterior probability of not making playoffs
+```{r}
+k <- 10
+##Step 1: State model
+p_w <- .5
+p_l <- 1-p_w
+##Step2: Set up priors
+p_16 <- 20/32 #no playoffs
+p_17 <- 4/32
+p_18 <- 6/32
+p_19 <- 2/32
+pri <- c(p_16,p_17,p_18,p_19)
+##Step3: calulate probability of data, given model = p(data | p) = likelihood
+n <- c(16:19)
+like <- sapply(n,function(x) dbinom(k,x,p_w))
+##Step4: calculate probability of priors, given data = p(prior|data) = posterior
+post <- pri*like
+##probability of not making playoffs, having 10 coin flip wins
+post[1]/sum(post)
+
+##OR MANUALLY, in 1 step
+20/32*(dbinom(10,16,p_w))/
+  sum(20/32*(dbinom(10,16,p_w)),4/32*(dbinom(10,17,p_w)),6/32*(dbinom(10,18,p_w)),2/32*(dbinom(10,19,p_w)))
+```
+### Discrete vs. Continuous Variables
+  - Discrete:
+    - Governed by probability mass function (PMF): P(x=k) = N(p)^k * (1-p)^(n-k)
+    - assigns probability for specific value; sum of all probabilities for range of values = 1
+    - Distributions include Binomial, Poisson
+  - Continuous:
+    - Governed by probability density function (PDF): f(x) = 1/sqrt(2pi) * 1/sd * e^[-1/2var * (x-mu)^2]
+    - Probaility = non-negative area underneath curve, pobability for specific value = 0
+    - Distributions include normal/gaussian, uniform, beta, gamma
+      - beta: governed by parameters alpha (a), beta (B), allows flexible self-elicitation of personal probabilities that should change with data observed (Bayes)
+        - f(p) = ~(a+B)/(~a * ~B) * p^(a-1) * (1-p)^(B-1)
+          - 0<=p<=1 | a>0,B>0
+          - ~(n) = (n-1)(n-2)..(1)
+        - Bayesian assumes uniform dist w/ no prior knowlegde (uniform, beta(1,1))
+          - mean = a/(a+B)
+          - posterior = (a+k,B+(n-k)), becomes new prior
+```{r}
+dat <- data.frame(x=seq(0,1,length.out = 101)) #quantiles
+  
+ggplot(dat) +
+  geom_line(aes(x,y=dbeta(x,.5,.5),color="a=B=.5"))+
+  geom_line(aes(x,y=dbeta(x,2,2),color="a=2,B=2")) +
+  geom_line(aes(x,y=dbeta(x,5,1),color="a=5,B=1")) +
+  geom_line(aes(x,y=dbeta(x,1,5),color="a=1,B=5")) +
+  geom_line(aes(x,y=dbeta(x,2,5),color="a=2,B=5")) +
+  geom_line(aes(x,y=dbeta(x,5,2),color="a=5,B=2")) +
+  geom_line(aes(x,y=dbeta(x,1,1),color="a=B=1,uniform")) +
+  labs(y="y") +
+  ggtitle("Beta Distribution: various parameters") +
+  theme_minimal()
+```
+       - Conjugacy: when posterior distribution is in same family as prior beliefs but with different parameters
+         - conjugate distributions: prior is in one dist, data is in another, and posterior is in prior but with new parameters
+         - ex: beta-binomial is a conjugate relationship
+           - Bayes rule has binomial dist and can't be used for continuous variables
+           - integral of Bayes rule shows beta distribution for prior
+           - therefore, posterior must also have beta dist with new parameters
+       - Poisson:
+         - PMF: P(x=k) = lambda^k/k! * e^(-lambda)
+           - lambda = average rate = non-negative
+```{r}
+shape <- 20
+dat <- data.frame(x=0:100) #quantiles
+p <- ggplot(dat) 
+for(i in 1:9)
+{
+  dat <- dat %>% 
+    mutate(y=dgamma(x,shape,i/10),id=paste("rate",i/10))
+  p <- p + geom_line(data=dat,aes(x,y,color=id))
+}
+p +
+    ggtitle("Gamma Distribution: shape=20, various rates") +
+  theme_minimal()
+```
+           - parameters: k, theta
+             - mean = k*theta
+             - sd = theta*sqrt(k)
+             - posteriors:
+               - k* = k + sum{x(1:i)}
+               - theta* = theta/(n*theta + 1)
+           - gamma/poisson are conjugate distributions 
+        - Normal:
+          - prior on unknown mu is normal, we know standard deviation
+            - mean=v
+            - sd=r
+          - posterior:
+            - v* = (v*var + nx_r^2) / (var + nr^2)
+            - r* = sqrt(var*r^2 / (var+nr^2))
+          - normal/normal are conjugate families
+### Loss Functions
+  - Bayesian perspective is to minimize loss, depending on loss function, best estimates are:
+    - Linear: Median
+    - Square: Mean
+    - Binary: Mode
+```{r}
+vec <- c(1,19,20,22,22,25,25,26,27,28,28,28,29,30,31,31,31,31,31,32,32,32,32,33,33,33,35,35,35,35,35,35)
+dat <- data.frame(
+  x=vec,
+  b=0,
+  l=0,
+  s=0
+  
+) 
+
+#get mode
+
+y <- table(vec)
+mode <- as.numeric(names(y)[which(y==max(y))])
+
+for (i in 1:length(vec)) {
+  dat <- dat %>% 
+    mutate(b=if_else(row_number()==i,sum(if_else(x==vec[i],0,1)),b),
+           l=if_else(row_number()==i,sum(abs(x-vec[i])),l),
+           s=if_else(row_number()==i,sum((x-vec[i])^2),s)
+           )
+}
+
+ggplot(dat) + 
+  geom_bar(aes(x=x)) +
+  geom_line(aes(x=x,y=b)) +
+  geom_bar(aes(x=mode,fill="Mode")) +
+  theme_minimal() +
+  ggtitle("Binary Loss Fn")
+
+ggplot(dat) + 
+  geom_bar(aes(x=x)) +
+  geom_line(aes(x=x,y=l)) +
+  geom_bar(aes(x=median(dat$x),fill="Median")) +
+  theme_minimal() +
+  ggtitle("Linear Loss Fn")
+
+ggplot(dat) + 
+  geom_bar(aes(x=x)) +
+  geom_bar(aes(x=mean(dat$x),fill="Mean")) +
+  geom_line(aes(x=x,y=s/100)) +  
+  theme_minimal() +
+  ggtitle("Square Loss Fn")
+  
+
+```
+    
+  - Decision Theory we can assign weights to hypothesis outcome posteriors to minimize losses, e.g.:
+    - false positive HIV we ight < false negative HIV weight
+    - allows us to determine which hypothesis to reject
+### Bayes Factor:
+  - Prior Odds: O[H1:H2] = P(H1)/P(H2)
+  - Posterior Odds: P(H1|data) / P(H2|data)
+    = P(data|H1)xP(H1)/P(data) / P(data|H2)xP(H2)/P(data)
+    = P(data|H1)xP(H1) / P(data|H2)xP(H2)
+    = P(data|H1)/P(data|H2) * P(H1)/P(H2)
+    = BF * Prior Odds
+  - Gives evidence against H2 | take inverse for evidence against H1:
+    - 1-3 | 0-2 (2*log BF inverse): not worth a mention
+    - 3-20 | 2-6: positive
+    - 30 - 150 | 6-10: strong
+    - 150+ | 10+: very strong
+    
+### Bayesian Regression Ex: details --> https://github.com/StatsWithR/figures/blob/master/04_bayesian_statistics/week_04/5.2.1_Bayesian_linear_regression/R/5.2.1_Bayesian_linear_regression.pdf
+
+```{r}
+library("BAS")
+data(bodyfat)
+#summary(bodyfat)
+plot(Bodyfat ~ Abdomen, data=bodyfat,
+xlab="abdomen circumference (cm)",
+col='blue', pch=16, main="")
+bodyfat.lm = lm(Bodyfat ~ Abdomen, data=bodyfat)
+beta = coef(bodyfat.lm)
+abline(beta, lwd=4, col=1)
+summary(bodyfat.lm)
+
+plot(residuals(bodyfat.lm) ~ fitted(bodyfat.lm))
+abline(h=0)
+
+plot(bodyfat.lm, which=2)
+
+out = summary(bodyfat.lm)$coef[, 1:2]
+out = cbind(out, confint(bodyfat.lm))
+colnames(out) = c("posterior mean", "sd", "2.5", "97.5")
+round(out, 2)
+
+x = bodyfat$Abdomen
+y= bodyfat$Bodyfat
+xnew <- seq(min(x), max(x), length.out = 100)
+ynew <- data.frame(predict(bodyfat.lm, newdata = data.frame(Abdomen = xnew),
+interval = "confidence", level = 0.95))
+plot(x,y, xlab = "abdomen", ylab="bodyfat", col='blue', pch=16)
+lines(ynew$lwr ~ xnew, lty = 2, lwd=3, col='grey')
+lines(ynew$upr ~ xnew, lty = 2, lwd=3, col='grey')
+abline(bodyfat.lm, col="orange")
+ynew <- data.frame(predict(bodyfat.lm, newdata = data.frame(Abdomen = xnew),
+interval = "prediction", level = 0.95))
+lines(ynew$lwr ~ xnew, lty = 3, lwd=3, col='grey')
+lines(ynew$upr ~ xnew, lty = 3, lwd=3, col='grey')
+points(bodyfat[39,"Abdomen"], bodyfat[39,"Bodyfat"], col="orange", cex=5)
+legend(110,15, legend=c("Posterior mean", "95% CI for mean", "95% CI for predictions"),
+col=c("orange",rep('grey', 2)), lwd=3, lty=c(1,2, 3))
+
+#pred.39 = predict(bodyfat.lm, newdata=bodyfat[39,], interval="prediction", level=.095)
+
+```
+

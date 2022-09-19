@@ -1,0 +1,25 @@
+"0","xtra <- dat_stats %>% 
+  select(Opening, Selina, `Sub Category`, Sell_avg, Inv_avg) %>% 
+  mutate(
+    sell_dist=Sell_avg/sum(Sell_avg),
+    aval_dist=Inv_avg/sum(Inv_avg)
+  ) %>% 
+  select(-Sell_avg,-Inv_avg) %>% 
+  pivot_wider(names_from = `Sub Category`, values_from = c(sell_dist,aval_dist)) %>% 
+  mutate_if(is.numeric,funs(percent))
+"
+"2","`mutate_if()` ignored the following grouping variables:
+Columns `Opening`, `Selina`"
+"2","funs() is soft deprecated as of dplyr 0.8.0
+Please use a list of either functions or lambdas: 
+
+  # Simple named list: 
+  list(mean = mean, median = median)
+
+  # Auto named with `tibble::lst()`: 
+  tibble::lst(mean, median)
+
+  # Using lambdas
+  list(~ mean(., trim = .2), ~ median(., na.rm = TRUE))
+[90mThis warning is displayed once per session.[39m"
+"0","  "
